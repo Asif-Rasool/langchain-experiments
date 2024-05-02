@@ -1,6 +1,39 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# In[ ]:
+
+
+signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
+
+def require_slack_verification(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not verify_slack_request():
+            abort(403)
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def verify_slack_request():
+    # Get the request headers
+    timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
+    signature = request.headers.get("X-Slack-Signature", "")
+
+    # Check if the timestamp is within five minutes of the current time
+    current_timestamp = int(time.time())
+    if abs(current_timestamp - int(timestamp)) > 60 * 5:
+        return False
+
+    # Verify the request signature
+    return signature_verifier.is_valid(
+        body=request.get_data().decode("utf-8"),
+        timestamp=timestamp,
+        signature=signature,
+    )
+
+
 # In[1]:
 
 
@@ -66,79 +99,85 @@ def get_bot_user_id():
         print(f"Error: {e}")
 
 
+# In[7]:
+
+
+get_bot_user_id()
+
+
 # In[8]:
 
 
-import os
-from dotenv import find_dotenv, load_dotenv
-from langchain.document_loaders import UnstructuredEPubLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores.faiss import FAISS
-from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOpenAI
-from langchain.memory import ConversationBufferMemory
-from slack_bolt import App
-from langchain.prompts.chat import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+# import os
+# from dotenv import find_dotenv, load_dotenv
+# from langchain.document_loaders import UnstructuredEPubLoader
+# from langchain.text_splitter import RecursiveCharacterTextSplitter
+# from langchain.embeddings.openai import OpenAIEmbeddings
+# from langchain.vectorstores.faiss import FAISS
+# from langchain.chains import RetrievalQA
+# from langchain.chat_models import ChatOpenAI
+# from langchain.memory import ConversationBufferMemory
+# from slack_bolt import App
+# from langchain.prompts.chat import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 
-# Load environment variables
-load_dotenv(find_dotenv())
+# # Load environment variables
+# load_dotenv(find_dotenv())
 
-# Load the EPUB document
-epub_loader = UnstructuredEPubLoader("Chapter-7-NMSA-1978.epub")
-documents = epub_loader.load()
+# # Load the EPUB document
+# epub_loader = UnstructuredEPubLoader("Chapter-7-NMSA-1978.epub")
+# documents = epub_loader.load()
 
-# Refine text splitting
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
-texts = text_splitter.split_documents(documents)
+# # Refine text splitting
+# text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+# texts = text_splitter.split_documents(documents)
 
-# Create embeddings and vectorstore
-embeddings = OpenAIEmbeddings()
-vectorstore = FAISS.from_texts([text.page_content for text in texts], embeddings)
+# # Create embeddings and vectorstore
+# embeddings = OpenAIEmbeddings()
+# vectorstore = FAISS.from_texts([text.page_content for text in texts], embeddings)
 
-# Define the RetrievalQA chain
-retrieval_qa_chain = RetrievalQA.from_chain_type(
-    llm=ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2),  # Consistency
-    retriever=vectorstore.as_retriever(search_kwargs={"k": 5}),  # Retrieve top 5 results
-    return_source_documents=True  # Enable source documents for debugging
-)
+# # Define the RetrievalQA chain
+# retrieval_qa_chain = RetrievalQA.from_chain_type(
+#     llm=ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2),  # Consistency
+#     retriever=vectorstore.as_retriever(search_kwargs={"k": 5}),  # Retrieve top 5 results
+#     return_source_documents=True  # Enable source documents for debugging
+# )
 
-# Memory for conversation context
-memory = ConversationBufferMemory()
+# # Memory for conversation context
+# memory = ConversationBufferMemory()
 
-# Define prompt structure for system and human prompts
-system_template = "You are a helpful assistant at New Mexico Tax & Rev. Explain Chapter-7-NMSA-1978 clearly and accurately."
-system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
-human_template = "User asks: {user_input}"
-human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
-chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
+# # Define prompt structure for system and human prompts
+# system_template = "You are a helpful assistant at New Mexico Tax & Rev. Explain Chapter-7-NMSA-1978 clearly and accurately."
+# system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
+# human_template = "User asks: {user_input}"
+# human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+# chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
 
-@app.event("app_mention")
-def handle_mentions(body, say):
-    try:
-        event_text = body.get("event", {}).get("text", "")
-        user_input = event_text.split(">", 1)[-1].strip()
+# @app.event("app_mention")
+# def handle_mentions(body, say):
+#     try:
+#         event_text = body.get("event", {}).get("text", "")
+#         user_input = event_text.split(">", 1)[-1].strip()
 
-        # Check if the query is about New Mexico Statutes
-        if "new mexico statute" in user_input.lower():
-            response = retrieval_qa_chain.run(user_input)
-            # Return the result or a fallback message if no result
-            say(response['result'] if 'result' in response else "I couldn't find any information on that topic.")
-        else:
-            # Handle general queries with the same RetrievalQA
-            response = retrieval_qa_chain.run(user_input)
-            # Return the result or a fallback message
-            say(response['result'] if 'result' in response else "I couldn't generate a response.")
+#         # Check if the query is about New Mexico Statutes
+#         if "new mexico statute" in user_input.lower():
+#             response = retrieval_qa_chain.run(user_input)
+#             # Return the result or a fallback message if no result
+#             say(response['result'] if 'result' in response else "I couldn't find any information on that topic.")
+#         else:
+#             # Handle general queries with the same RetrievalQA
+#             response = retrieval_qa_chain.run(user_input)
+#             # Return the result or a fallback message
+#             say(response['result'] if 'result' in response else "I couldn't generate a response.")
 
-    except Exception as e:
-        # Log the error with more detail
-        print("Error handling app_mention:", e)
-        # Return a fallback response in case of an error
-        say("Sorry, I encountered an error while processing your request. Could you rephrase or ask again?")
+#     except Exception as e:
+#         # Log the error with more detail
+#         print("Error handling app_mention:", e)
+#         # Return a fallback response in case of an error
+#         say("Sorry, I encountered an error while processing your request. Could you rephrase or ask again?")
 
 
 
-# In[10]:
+# In[ ]:
 
 
 import os
@@ -195,10 +234,11 @@ def handle_message_events(event, say):
     say(response)
 
 
-# In[11]:
+# In[ ]:
 
 
 @flask_app.route("/slack/events", methods=["POST"])
+@require_slack_verification
 def slack_events():
     """
     Route for handling Slack events.
@@ -215,7 +255,7 @@ def slack_events():
 
 # Initialize the Flask app
 if __name__ == "__main__":
-    flask_app.run()
+    flask_app.run(host="0.0.0.0", port=8000)
 
 
 # In[ ]:
