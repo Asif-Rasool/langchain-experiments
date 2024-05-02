@@ -2,12 +2,16 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - AlphieOnTheCloud
+name: Build and deploy Python app to Azure Web App - slack-gpt-app
 
 on:
   push:
     branches:
-      - main
+      - deployment
+    paths:
+        - 'slack/**'
+        - 'requirements.txt'
+        - 'startup.txt'
   workflow_dispatch:
 
 jobs:
@@ -15,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
 
       - name: Set up Python version
         uses: actions/setup-python@v1
@@ -31,16 +35,13 @@ jobs:
         run: pip install -r requirements.txt
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
-
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
-
+      
       - name: Upload artifact for deployment jobs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: python-app
           path: |
-            release.zip
+            . 
             !venv/
 
   deploy:
@@ -49,34 +50,23 @@ jobs:
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    permissions:
-      id-token: write #This is required for requesting the JWT
 
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v2
         with:
           name: python-app
-
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-
+          path: .
+      
       - name: Log in to Azure CLI using service principal
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      
-      # - name: Login to Azure
-      #   uses: azure/login@v1
-      #   with:
-      #     client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D89390E8162B4F60A237A6F4B332F8B4 }}
-      #     tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_2ADC9D0F43114323966283C92627F391 }}
-      #     subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B7FB616D51D24F359922135370411802 }}
-
+          
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v2
         id: deploy-to-webapp
         with:
-          app-name: 'AlphieOnTheCloud'
+          app-name: 'slack-gpt-app'
           slot-name: 'Production'
-          
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_490AB47F40CF4E94847F3598F17D4071 }}
