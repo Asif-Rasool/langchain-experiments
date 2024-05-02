@@ -1,1 +1,1 @@
-gunicorn --bind=0.0.0.0 --timeout 600 --chdir slack alphie-on-the-cloud-1.01:flask_app
+gunicorn --bind=0.0.0.0 --timeout 600 --chdir slack app_final:flask_app
