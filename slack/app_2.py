@@ -123,7 +123,7 @@ def handle_message_events(event, say):
     # Respond with the generated response
     say(response)
 
-#Demo
+#Demo-final
 @flask_app.route("/slack/events", methods=["POST"])
 @require_slack_verification
 def slack_events():
