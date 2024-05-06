@@ -136,7 +136,7 @@ def slack_events():
     """
 
     return handler.handle(request)
-
+#ok
 # Run the Flask app
 if __name__ == "__main__":
     logging.info("Flask app started")
