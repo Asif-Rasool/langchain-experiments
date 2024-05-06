@@ -124,53 +124,6 @@ def handle_message_events(event, say):
     # Respond with the generated response
     say(response)
     
-####################  Artcle 17  ############################################
-
-from PyPDF2 import PdfReader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import ElasticVectorSearch, Pinecone, Weaviate, FAISS
-!pip install pdf_handler
-# Import the function from the pdf_handler module
-from pdf_handler import extract_text_from_pdf
-
-# Import the function from the pdf_handler module
-from pdf_handler import extract_text_from_pdf
-
-# Define the route for handling Slack events and PDF queries
-@flask_app.route("/slack/events", methods=["POST"])
-@require_slack_verification
-def slack_events():
-    """
-    Route for handling Slack events and PDF queries.
-    This function passes the incoming HTTP request to the SlackRequestHandler for processing.
-
-    Returns:
-        Response: The result of handling the request.
-    """
-    # Check if the request is a Slack event
-    if request.headers.get("Content-Type") == "application/json":
-        # Handle Slack events using the SlackRequestHandler
-        return handler.handle(request)
-
-    # If the request is not a Slack event, it might be a PDF query
-    # Extract text from the pre-loaded PDF document
-    pdf_file_path = "Article 17.pdf"  # Adjust this path accordingly
-    raw_text = extract_text_from_pdf(pdf_file_path)
-
-    # Get the user query from the request
-    query = request.form.get("query", "")
-
-    # Perform question-answering tasks based on the extracted text and user query
-    if query:
-        docs = docsearch.similarity_search(query)
-        response = chain.run(input_documents=docs, question=query)
-        return jsonify({"response": response}), 200
-    else:
-        return jsonify({"error": "No query provided"}), 400
-
-############################################################################################
-
 
 @flask_app.route("/slack/events", methods=["POST"])
 @require_slack_verification
