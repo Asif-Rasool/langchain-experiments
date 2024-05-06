@@ -62,12 +62,10 @@ jobs:
         run: unzip release.zip
 
       
-      - name: Login to Azure
+      - name: Log in to Azure CLI using service principal
         uses: azure/login@v1
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2F9232326C5D4279BD6BE2F9CF1BD88D }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_DDC906C2F7BF4F7DB10385236B74A3B7 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_CAFC18150BAA4E928B1F53C9C2E6018C }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v2
