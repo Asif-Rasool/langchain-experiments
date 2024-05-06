@@ -11,9 +11,6 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slack_sdk.signature import SignatureVerifier
 
-# Custom PDF helper functions
-from pdf_helper import process_pdf_and_answer_questions
-
 # Load environment variables from .env file
 load_dotenv(find_dotenv())
 
@@ -121,28 +118,12 @@ def handle_message_events(event, say):
         say("Hello! I'm Alphie, your friendly AI assistant at New Mexico Tax & Rev. How can I help you today?")
         return
 
- # Special handling for PDF-related questions
-    if "pdf" in user_text.lower() or "article 17" in user_text.lower():
-        # Extract the question
-        question = user_text
-        pdf_path = "Article 17.pdf"  # Path to your PDF file
-        
-        # Process the PDF and get an answer
-        response = process_pdf_and_answer_questions(pdf_path, [question])
-        
-        # Say the answer
-        say(response[question])
-        return
 
-    # Default behavior
-    response = "I'm not sure I understand. Could you rephrase?"
+    # Generate the response with the conversational chain
+    response = chain.run(user_input=user_text)
+
+    # Respond with the generated response
     say(response)
-
-    # # Generate the response with the conversational chain
-    # response = chain.run(user_input=user_text)
-
-    # # Respond with the generated response
-    # say(response)
     
 
 @flask_app.route("/slack/events", methods=["POST"])
