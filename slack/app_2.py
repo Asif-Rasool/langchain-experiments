@@ -1,16 +1,15 @@
-import sys
+import logging
 import os
+import time
+from functools import wraps
+
+from dotenv import find_dotenv, load_dotenv
+from flask import Flask, request, abort
+from slack_bolt import App
+from slack_bolt.adapter.flask import SlackRequestHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from slack_bolt.adapter.flask import SlackRequestHandler
-from slack_bolt import App
-from dotenv import find_dotenv, load_dotenv
-from flask import Flask, request
-import logging
 from slack_sdk.signature import SignatureVerifier
-from functools import wraps
-from flask import Flask, request, abort
-import time
 
 # Load environment variables from .env file
 load_dotenv(find_dotenv())
@@ -28,6 +27,7 @@ signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 # Flask is a web application framework written in Python
 flask_app = Flask(__name__)
 handler = SlackRequestHandler(app)
+
 
 def require_slack_verification(f):
     @wraps(f)
@@ -56,6 +56,7 @@ def verify_slack_request():
         signature=signature,
     )
 
+
 def get_bot_user_id():
     """
     Get the bot user ID using the Slack API.
@@ -70,9 +71,8 @@ def get_bot_user_id():
     except SlackApiError as e:
         print(f"Error: {e}")
 
+
 import os
-from slack_bolt import App
-from slack_bolt.adapter.socket_mode import SocketModeHandler
 from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
@@ -107,6 +107,7 @@ chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_mes
 # Create a conversational chain with memory for maintaining context
 chain = LLMChain(llm=chat, prompt=chat_prompt, memory=memory)
 
+
 # Define the event listener for Slack messages
 @app.event("message")
 def handle_message_events(event, say):
@@ -123,7 +124,7 @@ def handle_message_events(event, say):
     # Respond with the generated response
     say(response)
 
-#Demo-final
+
 @flask_app.route("/slack/events", methods=["POST"])
 @require_slack_verification
 def slack_events():
@@ -136,6 +137,7 @@ def slack_events():
     """
 
     return handler.handle(request)
+
 
 # Run the Flask app
 if __name__ == "__main__":
