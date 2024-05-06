@@ -6,6 +6,11 @@ from slack_bolt.adapter.flask import SlackRequestHandler
 from slack_bolt import App
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, request
+import logging
+from slack_sdk.signature import SignatureVerifier
+from functools import wraps
+from flask import Flask, request, abort
+import time
 
 # Load environment variables from .env file
 load_dotenv(find_dotenv())
@@ -17,11 +22,39 @@ SLACK_BOT_USER_ID = os.environ["SLACK_BOT_USER_ID"]
 
 # Initialize the Slack app
 app = App(token=SLACK_BOT_TOKEN)
+signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 
 # Initialize the Flask app
 # Flask is a web application framework written in Python
 flask_app = Flask(__name__)
 handler = SlackRequestHandler(app)
+
+def require_slack_verification(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not verify_slack_request():
+            abort(403)
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def verify_slack_request():
+    # Get the request headers
+    timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
+    signature = request.headers.get("X-Slack-Signature", "")
+
+    # Check if the timestamp is within five minutes of the current time
+    current_timestamp = int(time.time())
+    if abs(current_timestamp - int(timestamp)) > 60 * 5:
+        return False
+
+    # Verify the request signature
+    return signature_verifier.is_valid(
+        body=request.get_data().decode("utf-8"),
+        timestamp=timestamp,
+        signature=signature,
+    )
 
 def get_bot_user_id():
     """
@@ -92,6 +125,7 @@ def handle_message_events(event, say):
 
 
 @flask_app.route("/slack/events", methods=["POST"])
+@require_slack_verification
 def slack_events():
     """
     Route for handling Slack events.
@@ -100,8 +134,10 @@ def slack_events():
     Returns:
         Response: The result of handling the request.
     """
+
     return handler.handle(request)
 
-# Initialize the Flask app
+# Run the Flask app
 if __name__ == "__main__":
-    flask_app.run()
+    logging.info("Flask app started")
+    flask_app.run(host="0.0.0.0", port=8000)
