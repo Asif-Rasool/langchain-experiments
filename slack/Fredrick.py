@@ -44,7 +44,8 @@ from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
 
 
-app = App(token=SLACK_BOT_TOKEN, signing_secret=SLACK_SIGNING_SECRET)
+# Initialize the Slack app
+app = App(token=SLACK_BOT_TOKEN)
 signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 
 flask_app = Flask(__name__)
