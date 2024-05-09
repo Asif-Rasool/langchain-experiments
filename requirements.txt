@@ -6,3 +6,5 @@ slack-bolt
 Flask
 gunicorn
 urllib3<2
+fredapi
+pandas
