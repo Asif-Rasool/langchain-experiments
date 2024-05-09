@@ -37,11 +37,6 @@ SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET_FRED")
 FRED_API_KEY = os.environ.get("FRED_API_KEY")
 SLACK_BOT_USER_ID = os.environ.get("SLACK_BOT_USER_ID_FRED")
 
-# Check if environment variables are loaded correctly
-if not all([SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, FRED_API_KEY, SLACK_BOT_USER_ID]):
-    raise ValueError("Missing environment variables. Please check your .env file.")
-
-
 
 # Initialize the Slack app and Flask app
 from flask import Flask, request
