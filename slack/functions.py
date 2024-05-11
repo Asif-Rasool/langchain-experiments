@@ -1,43 +1,146 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import LLMChain
-from dotenv import find_dotenv, load_dotenv
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-)
 
-load_dotenv(find_dotenv())
+# 1 Function to extract text from PDF
+def extract_text_from_pdf(pdf_path):
+    reader = fitz.open(pdf_path)
+    raw_text = ""
+    for page in reader:
+        text = page.get_text()
+        if text:
+            raw_text += text + "\n"
+    return raw_text
 
 
-def draft_email(user_input, name="Dave"):
-    chat = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=1)
+# 2 Function to clean text
+def clean_text(text):
+    text = re.sub(r'\s+', ' ', text)  # Replace multiple whitespace with a single space
+    text = text.strip()  # Strip leading and trailing whitespace
+    return text
 
-    template = """
-    
-    You are a helpful assistant that drafts an email reply based on an a new email.
-    
-    Your goal is to help the user quickly create a perfect email reply.
-    
-    Keep your reply short and to the point and mimic the style of the email so you reply in a similar manner to match the tone.
-    
-    Start your reply by saying: "Hi {name}, here's a draft for your reply:". And then proceed with the reply on a new line.
-    
-    Make sure to sign of with {signature}.
-    
-    """
 
-    signature = f"Kind regards, \n\{name}"
-    system_message_prompt = SystemMessagePromptTemplate.from_template(template)
+# 3 Function to analyze PDF content
+def analyze_pdf(pdf_path, question):
+    raw_text = extract_text_from_pdf(pdf_path)
+    cleaned_text = clean_text(raw_text)
 
-    human_template = "Here's the email to reply to and consider any other comments from the user for reply as well: {user_input}"
-    human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
-
-    chat_prompt = ChatPromptTemplate.from_messages(
-        [system_message_prompt, human_message_prompt]
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1500,
+        chunk_overlap=400,
+        separators=["\n", " ", "."],
     )
+    texts = text_splitter.split_text(cleaned_text)
 
-    chain = LLMChain(llm=chat, prompt=chat_prompt)
-    response = chain.run(user_input=user_input, signature=signature, name=name)
+    embeddings = OpenAIEmbeddings()
+    docsearch = FAISS.from_texts(texts, embeddings)
 
-    return response
+    qa_chain = load_qa_chain(OpenAI(), chain_type="refine")
+
+    docs = docsearch.similarity_search(question, k=7)  # Context for similarity search
+    answer = qa_chain.run(input_documents=docs, question=question)
+
+    return answer
+
+
+# 4 Function to get the PDF path based on a keyword
+def get_pdf_path_from_keyword(keyword):
+    keyword = keyword.lower()
+    for key in article_pdf_map:
+        if keyword in key:
+            return article_pdf_map[key]
+    return None
+
+
+# 5 Function to perform Google Search
+def google_search(query):
+    API_KEY = os.environ["GOOGLE_SEARCH_API_KEY"]
+    params = {
+        "q": query,
+        "api_key": API_KEY,
+    }
+    search = GoogleSearch(params)
+    results = search.get_dict()
+    return results
+
+
+# 6 Function to get a Wikipedia summary
+def get_wikipedia_summary(topic):
+    try:
+        summary = wikipedia.summary(topic, sentences=2)
+        return summary
+    except wikipedia.exceptions.PageError:
+        return "I couldn't find any information on that topic in Wikipedia."
+    except wikipedia.exceptions.DisambiguationError:
+        return "This topic is ambiguous. Could you be more specific?"
+
+
+# 7 Function to get bot user id
+def get_bot_user_id():
+    """
+    Get the bot user ID using the Slack API.
+    Returns:
+        str: The bot user ID.
+    """
+    try:
+        # Initialize the Slack client with your bot token
+        slack_client = WebClient(token=os.environ["SLACK_BOT_TOKEN_FRED"])
+        response = slack_client.auth_test()
+        return response["user_id"]
+    except SlackApiError as e:
+        print(f"Error: {e}")
+
+
+# 8 Function to fetch data from FRED based on a series ID
+def fetch_historical_data_from_fred(series_id):
+    source_url = f"https://fred.stlouisfed.org/series/{series_id}"  # Source URL
+
+    try:
+        # Fetch the entire time series
+        series = fred.get_series(series_id)
+        if series.empty:
+            return f"No data found for the given series. You can check the source here: {source_url}"
+
+        # Create a dataframe and get the first 5 and last 5 rows
+        table_data = pd.DataFrame(series, columns=["Value"]).reset_index()
+        table_data.columns = ["Date", "Value"]
+
+        # Get the first 5 and last 5 rows
+        first_rows = table_data.head(5)
+        last_rows = table_data.tail(5)
+
+        # Format as a Slack-friendly markdown table
+        table_str = "```"  # Slack code block
+        table_str += "{:<15} {:>10}\n".format("Date", "Value")
+
+        # Add the first 5 rows
+        for _, row in first_rows.iterrows():
+            date = str(row["Date"])  # Use raw date
+            table_str += "{:<15} {:>10}\n".format(date, f"{row['Value']:.2f}")
+
+        # Add ellipses to indicate omitted rows
+        table_str += "... [omitted] ...\n"
+
+        # Add the last 5 rows
+        for _, row in last_rows.iterrows():
+            date = str(row["Date"])  # Use raw date
+            table_str += "{:<15} {:>10}\n".format(date, f"{row['Value']:.2f}")
+
+        table_str += "```"
+
+        # Return the data table along with the source link
+        return f"{table_str}\nSource: {source_url}"
+
+    except Exception as e:
+        # If there's an error, return the error message along with the source URL
+        return f"An error occurred while fetching data: {str(e)}. You can check the source here: {source_url}"
+
+
+# 9 Function to get series ID based on a keyword
+def get_series_id_from_keyword(keyword):
+    # Search for FRED series based on a keyword
+    search_result = fred.search(keyword)
+    if search_result.empty:
+        return None
+    # Get the first result from the search
+    return search_result.iloc[0]["id"]
+
+
+
