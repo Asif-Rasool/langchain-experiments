@@ -1,0 +1,3 @@
+ngrok start --config=ngrok.yml --all
+
+ngrok start --config=ngrok-instance2.yml --all  
