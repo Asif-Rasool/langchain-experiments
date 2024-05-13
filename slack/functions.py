@@ -1,5 +1,6 @@
 
 # 1 Function to extract text from PDF
+
 def extract_text_from_pdf(pdf_path):
     reader = fitz.open(pdf_path)
     raw_text = ""
@@ -9,15 +10,15 @@ def extract_text_from_pdf(pdf_path):
             raw_text += text + "\n"
     return raw_text
 
-
 # 2 Function to clean text
+
 def clean_text(text):
     text = re.sub(r'\s+', ' ', text)  # Replace multiple whitespace with a single space
     text = text.strip()  # Strip leading and trailing whitespace
     return text
 
-
 # 3 Function to analyze PDF content
+
 def analyze_pdf(pdf_path, question):
     raw_text = extract_text_from_pdf(pdf_path)
     cleaned_text = clean_text(raw_text)
@@ -39,8 +40,29 @@ def analyze_pdf(pdf_path, question):
 
     return answer
 
-
 # 4 Function to get the PDF path based on a keyword
+
+# Load the mapping from the CSV file for keyword-to-PDF mapping
+csv_path = "C:/Users/asifr/OneDrive - State of New Mexico\Documents/GitHub/langchain-experiments/slack/output_tables/article_titles.csv"  # Update with correct path
+pdf_dir = "articles_output"  # Directory with PDFs
+
+import pandas as pd
+import os
+
+article_pdf_map = {}
+df = pd.read_csv(csv_path)
+
+# Populate the dictionary with ARTICLE numbers and short titles
+for _, row in df.iterrows():
+    article_number = row["ARTICLE Number"]
+    short_title = row["Short Title"]
+
+    pdf_name = f"ARTICLE {article_number}.pdf"
+    pdf_path = os.path.join(pdf_dir, pdf_name)
+
+    article_pdf_map[article_number] = pdf_path
+    article_pdf_map[short_title.lower()] = pdf_path
+
 def get_pdf_path_from_keyword(keyword):
     keyword = keyword.lower()
     for key in article_pdf_map:
@@ -48,8 +70,8 @@ def get_pdf_path_from_keyword(keyword):
             return article_pdf_map[key]
     return None
 
-
 # 5 Function to perform Google Search
+
 def google_search(query):
     API_KEY = os.environ["GOOGLE_SEARCH_API_KEY"]
     params = {
@@ -62,6 +84,7 @@ def google_search(query):
 
 
 # 6 Function to get a Wikipedia summary
+
 def get_wikipedia_summary(topic):
     try:
         summary = wikipedia.summary(topic, sentences=2)
@@ -71,8 +94,8 @@ def get_wikipedia_summary(topic):
     except wikipedia.exceptions.DisambiguationError:
         return "This topic is ambiguous. Could you be more specific?"
 
-
 # 7 Function to get bot user id
+
 def get_bot_user_id():
     """
     Get the bot user ID using the Slack API.
@@ -87,8 +110,19 @@ def get_bot_user_id():
     except SlackApiError as e:
         print(f"Error: {e}")
 
-
 # 8 Function to fetch data from FRED based on a series ID
+
+import os
+import re
+import pandas as pd
+from fredapi import Fred
+
+# Load environment variables
+FRED_API_KEY = os.getenv("FRED_API_KEY")
+
+# Initialize Fred API
+fred = Fred(api_key=FRED_API_KEY)
+
 def fetch_historical_data_from_fred(series_id):
     source_url = f"https://fred.stlouisfed.org/series/{series_id}"  # Source URL
 
@@ -132,8 +166,8 @@ def fetch_historical_data_from_fred(series_id):
         # If there's an error, return the error message along with the source URL
         return f"An error occurred while fetching data: {str(e)}. You can check the source here: {source_url}"
 
-
 # 9 Function to get series ID based on a keyword
+
 def get_series_id_from_keyword(keyword):
     # Search for FRED series based on a keyword
     search_result = fred.search(keyword)
